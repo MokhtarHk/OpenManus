@@ -1,13 +1,20 @@
 FROM python:3.12-slim
 
-WORKDIR /app/OpenManus
+WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && (command -v uv >/dev/null 2>&1 || pip install --no-cache-dir uv)
+# Minimal system deps
+RUN apt-get update && apt-get install -y     git curl     && rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app files
 COPY . .
 
-RUN uv pip install --system -r requirements.txt
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
 
-CMD ["bash"]
+EXPOSE 8000
+
+CMD ["./entrypoint.sh"]
