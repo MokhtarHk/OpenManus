@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libfontconfig1 \
     fonts-liberation \
-    fonts-unifont \
+    fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN playwright install --with-deps chromium
+RUN playwright install chromium
 RUN chmod +x entrypoint.sh
 
 CMD ["./entrypoint.sh"]
