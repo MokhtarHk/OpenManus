@@ -1,7 +1,11 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
+import asyncio
+import json
 
 app = FastAPI(title="OpenManus API", version="1.0.0")
 
@@ -18,14 +22,12 @@ class TaskRequest(BaseModel):
     max_steps: int = 20
 
 
-class TaskResponse(BaseModel):
-    result: str
-    steps_taken: int
-
-
-@app.get("/")
-async def health():
-    return {"status": "ok", "service": "OpenManus"}
+@app.get("/", response_class=HTMLResponse)
+async def serve_ui():
+    html_path = Path(__file__).parent / "static" / "index.html"
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text())
+    return HTMLResponse(content="<h1>OpenManus API is running</h1><p>UI not found.</p>")
 
 
 @app.get("/health")
@@ -33,17 +35,21 @@ async def healthcheck():
     return {"status": "ok"}
 
 
-@app.post("/run", response_model=TaskResponse)
+@app.post("/run")
 async def run_task(request: TaskRequest):
-    try:
-        from app.agent.manus import Manus
-        agent = await Manus.create()
-        result = await agent.run(request.prompt)
-        steps_taken = len(getattr(agent.memory, "messages", []))
-        await agent.cleanup()
-        return TaskResponse(result=str(result), steps_taken=steps_taken)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    async def generate():
+        try:
+            from app.agent.manus import Manus
+            agent = await Manus.create()
+            yield json.dumps({"type": "status", "content": "Agent started..."}) + "\n"
+            result = await agent.run(request.prompt)
+            steps_taken = len(getattr(agent.memory, "messages", []))
+            await agent.cleanup()
+            yield json.dumps({"type": "result", "content": str(result), "steps": steps_taken}) + "\n"
+        except Exception as e:
+            yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 if __name__ == "__main__":
