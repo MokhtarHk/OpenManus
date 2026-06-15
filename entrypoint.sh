@@ -3,22 +3,23 @@ set -e
 
 mkdir -p config
 
-cat > config/config.toml << 'ENDOFFILE'
+if [ -z "$LLM_API_KEY" ]; then
+  echo "ERROR: LLM_API_KEY is not set"
+  exit 1
+fi
+
+cat > config/config.toml <<EOF
 [llm]
-model = "PLACEHOLDER_MODEL"
-base_url = "PLACEHOLDER_URL"
-api_key = "PLACEHOLDER_KEY"
+model = "${LLM_MODEL:-gemini-2.5-flash}"
+base_url = "${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}"
+api_key = "${LLM_API_KEY}"
 max_tokens = 8192
 temperature = 0.0
 
 [llm.vision]
-model = "PLACEHOLDER_MODEL"
-base_url = "PLACEHOLDER_URL"
-api_key = "PLACEHOLDER_KEY"
-ENDOFFILE
-
-sed -i "s|PLACEHOLDER_MODEL|${LLM_MODEL:-gemini-2.5-flash}|g" config/config.toml
-sed -i "s|PLACEHOLDER_URL|${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}|g" config/config.toml
-sed -i "s|PLACEHOLDER_KEY|${LLM_API_KEY}|g" config/config.toml
+model = "${LLM_VISION_MODEL:-${LLM_MODEL:-gemini-2.5-flash}}"
+base_url = "${LLM_VISION_BASE_URL:-${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}}"
+api_key = "${LLM_VISION_API_KEY:-${LLM_API_KEY}}"
+EOF
 
 exec python server.py
