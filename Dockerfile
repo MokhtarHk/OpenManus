@@ -43,7 +43,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN playwright install --with-deps chromium
+RUN playwright install chromium
 RUN chmod +x entrypoint.sh
 
 CMD ["./entrypoint.sh"]
