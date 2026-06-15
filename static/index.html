@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenManus</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f0f; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 16px 24px; border-bottom: 1px solid #1e1e1e; display: flex; align-items: center; gap: 12px; background: #111; }
+  header h1 { font-size: 18px; font-weight: 600; color: #fff; }
+  header span { font-size: 12px; color: #555; background: #1a1a1a; padding: 3px 8px; border-radius: 999px; }
+  #chat { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 80%; padding: 14px 18px; border-radius: 16px; line-height: 1.6; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { background: #1a6cf7; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .msg.agent { background: #1a1a1a; color: #e0e0e0; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #2a2a2a; }
+  .msg.status { background: #111; color: #555; align-self: center; font-size: 12px; border: 1px solid #222; border-radius: 999px; padding: 6px 14px; }
+  .msg.error { background: #2a0a0a; color: #ff6b6b; align-self: flex-start; border: 1px solid #4a1a1a; }
+  .msg .meta { font-size: 11px; color: #666; margin-top: 8px; }
+  #input-area { padding: 16px 24px; border-top: 1px solid #1e1e1e; background: #111; }
+  #form { display: flex; gap: 12px; align-items: flex-end; }
+  #prompt { flex: 1; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 12px 16px; color: #e0e0e0; font-size: 14px; resize: none; outline: none; min-height: 48px; max-height: 160px; font-family: inherit; line-height: 1.5; }
+  #prompt:focus { border-color: #1a6cf7; }
+  #prompt::placeholder { color: #444; }
+  #send { background: #1a6cf7; color: #fff; border: none; border-radius: 12px; padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 600; height: 48px; white-space: nowrap; transition: background 0.2s; }
+  #send:hover { background: #1557d4; }
+  #send:disabled { background: #222; color: #555; cursor: not-allowed; }
+  .thinking { display: flex; gap: 4px; align-items: center; padding: 14px 18px; background: #1a1a1a; border-radius: 16px; border-bottom-left-radius: 4px; border: 1px solid #2a2a2a; align-self: flex-start; }
+  .dot { width: 8px; height: 8px; background: #444; border-radius: 50%; animation: bounce 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #333; }
+  .empty h2 { font-size: 28px; color: #fff; font-weight: 700; }
+  .empty p { font-size: 14px; color: #555; text-align: center; max-width: 400px; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+  .suggestion { background: #1a1a1a; border: 1px solid #2a2a2a; color: #aaa; padding: 8px 16px; border-radius: 999px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .suggestion:hover { border-color: #1a6cf7; color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#1a6cf7" stroke-width="2"/><path d="M8 12h8M12 8v8" stroke="#1a6cf7" stroke-width="2" stroke-linecap="round"/></svg>
+  <h1>OpenManus</h1>
+  <span>AI Agent</span>
+</header>
+<div id="chat">
+  <div class="empty" id="empty">
+    <h2>OpenManus</h2>
+    <p>Your personal AI agent. Give it any task and it will browse the web, write code, and get things done.</p>
+    <div class="suggestions">
+      <div class="suggestion" onclick="useSuggestion(this)">Search latest AI news</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Write a Python script to sort a CSV</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Summarize a webpage for me</div>
+      <div class="suggestion" onclick="useSuggestion(this)">Find top 5 results for a topic</div>
+    </div>
+  </div>
+</div>
+<div id="input-area">
+  <form id="form">
+    <textarea id="prompt" placeholder="Give me a task..." rows="1"></textarea>
+    <button type="submit" id="send">Send</button>
+  </form>
+</div>
+<script>
+  const chat = document.getElementById('chat');
+  const form = document.getElementById('form');
+  const promptEl = document.getElementById('prompt');
+  const sendBtn = document.getElementById('send');
+  const empty = document.getElementById('empty');
+
+  promptEl.addEventListener('input', () => {
+    promptEl.style.height = 'auto';
+    promptEl.style.height = Math.min(promptEl.scrollHeight, 160) + 'px';
+  });
+
+  promptEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  });
+
+  function useSuggestion(el) {
+    promptEl.value = el.textContent;
+    promptEl.dispatchEvent(new Event('input'));
+    promptEl.focus();
+  }
+
+  function addMsg(text, cls, meta) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + cls;
+    div.textContent = text;
+    if (meta) { const m = document.createElement('div'); m.className = 'meta'; m.textContent = meta; div.appendChild(m); }
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  function addThinking() {
+    const div = document.createElement('div');
+    div.className = 'thinking';
+    div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const prompt = promptEl.value.trim();
+    if (!prompt) return;
+    if (empty) empty.style.display = 'none';
+    promptEl.value = '';
+    promptEl.style.height = 'auto';
+    sendBtn.disabled = true;
+    addMsg(prompt, 'user');
+    const thinking = addThinking();
+    try {
+      const res = await fetch('/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      thinking.remove();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'status') addMsg(data.content, 'status');
+            else if (data.type === 'result') addMsg(data.content, 'agent', data.steps + ' steps taken');
+            else if (data.type === 'error') addMsg('Error: ' + data.content, 'error');
+          } catch {}
+        }
+      }
+    } catch (err) {
+      thinking.remove();
+      addMsg('Connection error: ' + err.message, 'error');
+    }
+    sendBtn.disabled = false;
+    promptEl.focus();
+  });
+</script>
+</body>
+</html>
