@@ -22,7 +22,7 @@ base_url = "${LLM_VISION_BASE_URL:-${LLM_BASE_URL:-https://generativelanguage.go
 api_key = "${LLM_VISION_API_KEY:-${LLM_API_KEY}}"
 
 [daytona]
-api_key = "${DAYTONA_API_KEY:-placeholder}"
+daytona_api_key = "${DAYTONA_API_KEY:-placeholder}"
 EOF
 
 exec python server.py
