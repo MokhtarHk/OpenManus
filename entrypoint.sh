@@ -20,6 +20,9 @@ temperature = 0.0
 model = "${LLM_VISION_MODEL:-${LLM_MODEL:-gemini-2.5-flash}}"
 base_url = "${LLM_VISION_BASE_URL:-${LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}}"
 api_key = "${LLM_VISION_API_KEY:-${LLM_API_KEY}}"
+
+[daytona]
+api_key = "${DAYTONA_API_KEY:-placeholder}"
 EOF
 
 exec python server.py
